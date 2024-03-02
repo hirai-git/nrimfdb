@@ -1,0 +1,4 @@
+#requirement.txt
+snowflake-connector-python
+load_dotenv
+jpbizday
