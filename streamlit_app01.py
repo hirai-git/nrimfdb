@@ -4,45 +4,53 @@ import requests
 import snowflake.connector
 import datetime as dt
 import jpbizday
-
-
+from sqlalchemy import create_engine,Text
 import os
 from dotenv import load_dotenv
-
-# .envファイルの内容を読み込見込む
-load_dotenv()
-
 from urllib.error import URLError
 
+# .envファイルの内容を読み込見込む→githubに置きたくない
+#load_dotenv() 
 #import snowflake.connector
-def get_connection():
-    con = snowflake.connector.connect(
-        user = os.environ['SNOWFLAKE_USER'],
-        password = os.environ['SNOWFLAKE_PASSWORD'],
-        account = os.environ['SNOWFLAKE_ACCOUNT'],
-        warehouse = os.environ['SNOWFLAKE_WAREHOUSE'],
-        database = os.environ['SNOWFLAKE_DATABASE'],
-        role = os.environ['SNOWFLAKE_ROLE'],
-        schema = os.environ['SNOWFLAKE_SCHEMA']
-    )
-    data=pd.read_sql("select * from npmdb.nqiuser1.db_master ",con )
-    print(data)
-    return con
+# def get_connection():
+#     con = snowflake.connector.connect(
+#         user = os.environ['SNOWFLAKE_USER'],
+#         password = os.environ['SNOWFLAKE_PASSWORD'],
+#         account = os.environ['SNOWFLAKE_ACCOUNT'],
+#         warehouse = os.environ['SNOWFLAKE_WAREHOUSE'],
+#         database = os.environ['SNOWFLAKE_DATABASE'],
+#         role = os.environ['SNOWFLAKE_ROLE'],
+#         schema = os.environ['SNOWFLAKE_SCHEMA']
+#     )
+#     data=pd.read_sql("select * from npmdb.nqiuser1.db_master ",con )
+#     print(data)
+#     return con
+
+# Streamlitのシークレットを使用してSnowflakeの接続情報を取得
+snowflake_credentials = st.secrets["snowflake"]
+# Snowflakeへの接続URLを作成
+snowflake_url = (
+    f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@"
+    f"{snowflake_credentials['account']}/{snowflake_credentials['warehouse']}/"
+    f"{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&role={snowflake_credentials['role']}"
+)
+
+# Snowflakeに接続
+engine_SF = create_engine(snowflake_url)
+connection_SF = engine_SF.connect()
+
 
 def get_share_data(kabulist_date:str):
-   con_npm = get_connection()
    querylist = f"""select distinct SECURITY_CODE, KANJI_NAME
                     from NPMDB.NQIUSER1.ATTRIBUTES 
                     WHERE CALENDAR_DATE = {kabulist_date}
                     and  SECURITY_CODE not like '%0000%'
                     order by SECURITY_CODE;
                 """
-   querycd = pd.read_sql(querylist,con_npm)
+   querycd = pd.read_sql(querylist,connection_SF)
    querycd = querycd.set_index('SECURITY_CODE')
-   con_npm.close()
+   connection_SF.close()
    return querycd
-
-
 
 
 def adj_bd(date):
@@ -99,12 +107,11 @@ st.subheader('株価グラフ表示')
 #if __name__ == "__main__":
 if st.button('push display'):   
     #my_cnx = snowflake.connector.connect(**streamlit.secrets["snowflake"])
-    con= get_connection()
     query_file_path = 'npmdbtest.sql'
     query = get_query(kabuid=selector2,date_from=date1,date_to=date2,filename=query_file_path)
     #my_data_rows=run_query(query_file_path)
-    my_data = pd.read_sql(query,con)
-    con.close()
+    my_data = pd.read_sql(query,connection_SF)
+    connection_SF.close()
     
     my_data.loc[:,'PRICE']=my_data.loc[:,'PRICE'].astype('int')
     my_chart= my_data.set_index("CALENDAR_DATE")["PRICE"]
