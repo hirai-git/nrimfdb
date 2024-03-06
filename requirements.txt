@@ -1,5 +1,9 @@
 #requirement.txt
+streamlit
+pandas
+requests
 snowflake-connector-python
 load_dotenv
 jpbizday
 sqlalchemy
+python-dotenv
