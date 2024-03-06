@@ -42,6 +42,7 @@ snowflake_url = URL(
 
 # Snowflakeに接続
 engine_SF = create_engine(snowflake_url)
+connect_SF=engine_SF.connect()
 
 def get_share_data(kabulist_date:str):
    querylist = f"""select distinct SECURITY_CODE, KANJI_NAME
@@ -50,9 +51,9 @@ def get_share_data(kabulist_date:str):
                     and  SECURITY_CODE not like '%0000%'
                     order by SECURITY_CODE;
                 """
-   querycd = pd.read_sql(querylist,engine_SF)
+   querycd = pd.read_sql(querylist,connect_SF)
    querycd = querycd.set_index('SECURITY_CODE')
-   engine_SF.close()
+   engine_SF.dispose()
    return querycd
 
 
@@ -113,8 +114,8 @@ if st.button('push display'):
     query_file_path = 'npmdbtest.sql'
     query = get_query(kabuid=selector2,date_from=date1,date_to=date2,filename=query_file_path)
     #my_data_rows=run_query(query_file_path)
-    my_data = pd.read_sql(query,engine_SF )
-    engine_SF.close()
+    my_data = pd.read_sql(query,connect_SF )
+    engine_SF.dispose()
     
     my_data.loc[:,'PRICE']=my_data.loc[:,'PRICE'].astype('int')
     my_chart= my_data.set_index("CALENDAR_DATE")["PRICE"]
