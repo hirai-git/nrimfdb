@@ -8,6 +8,7 @@ from sqlalchemy import create_engine,Text
 import os
 from dotenv import load_dotenv
 from urllib.error import URLError
+from snowflake.sqlalchemy import URL
 
 # .envファイルの内容を読み込見込む→githubに置きたくない
 #load_dotenv() 
@@ -29,16 +30,18 @@ from urllib.error import URLError
 # Streamlitのシークレットを使用してSnowflakeの接続情報を取得
 snowflake_credentials = st.secrets["snowflake"]
 # Snowflakeへの接続URLを作成
-snowflake_url = (
-    f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@"
-    f"{snowflake_credentials['account']}/{snowflake_credentials['warehouse']}/"
-    f"{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&role={snowflake_credentials['role']}"
+snowflake_url = URL(
+    account=snowflake_credentials['account'],
+    user=snowflake_credentials['user'],
+    password=snowflake_credentials['password'],
+    warehouse=snowflake_credentials['warehouse'],
+    database=snowflake_credentials['database'],
+    schema=snowflake_credentials['schema'],
+    role=snowflake_credentials['role']
 )
 
 # Snowflakeに接続
 engine_SF = create_engine(snowflake_url)
-connection_SF = engine_SF.connect()
-
 
 def get_share_data(kabulist_date:str):
    querylist = f"""select distinct SECURITY_CODE, KANJI_NAME
@@ -47,9 +50,9 @@ def get_share_data(kabulist_date:str):
                     and  SECURITY_CODE not like '%0000%'
                     order by SECURITY_CODE;
                 """
-   querycd = pd.read_sql(querylist,connection_SF)
+   querycd = pd.read_sql(querylist,engine_SF)
    querycd = querycd.set_index('SECURITY_CODE')
-   connection_SF.close()
+   engine_SF.close()
    return querycd
 
 
@@ -110,8 +113,8 @@ if st.button('push display'):
     query_file_path = 'npmdbtest.sql'
     query = get_query(kabuid=selector2,date_from=date1,date_to=date2,filename=query_file_path)
     #my_data_rows=run_query(query_file_path)
-    my_data = pd.read_sql(query,connection_SF)
-    connection_SF.close()
+    my_data = pd.read_sql(query,engine_SF )
+    engine_SF.close()
     
     my_data.loc[:,'PRICE']=my_data.loc[:,'PRICE'].astype('int')
     my_chart= my_data.set_index("CALENDAR_DATE")["PRICE"]
