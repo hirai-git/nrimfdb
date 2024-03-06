@@ -7,3 +7,4 @@ load_dotenv
 jpbizday
 sqlalchemy
 python-dotenv
+snowflake-sqlalchemy
