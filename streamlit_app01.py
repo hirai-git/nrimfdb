@@ -30,15 +30,7 @@ from snowflake.sqlalchemy import URL
 # Streamlitのシークレットを使用してSnowflakeの接続情報を取得
 snowflake_credentials = st.secrets["snowflake"]
 # Snowflakeへの接続URLを作成
-snowflake_url = URL(
-    account=snowflake_credentials['account'],
-    user=snowflake_credentials['user'],
-    password=snowflake_credentials['password'],
-    warehouse=snowflake_credentials['warehouse'],
-    database=snowflake_credentials['database'],
-    schema=snowflake_credentials['schema'],
-    role=snowflake_credentials['role']
-)
+snowflake_url = f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@{snowflake_credentials['account']}/{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&warehouse={snowflake_credentials['warehouse']}&role={snowflake_credentials['role']}"
 
 # Snowflakeに接続
 engine_SF = create_engine(snowflake_url)
