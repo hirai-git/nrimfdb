@@ -10,6 +10,24 @@ from dotenv import load_dotenv
 from urllib.error import URLError
 from snowflake.sqlalchemy import URL
 
+# .envファイルの内容を読み込見込む→githubに置きたくない
+#load_dotenv() 
+#import snowflake.connector
+# def get_connection():
+#     con = snowflake.connector.connect(
+#         user = os.environ['SNOWFLAKE_USER'],
+#         password = os.environ['SNOWFLAKE_PASSWORD'],
+#         account = os.environ['SNOWFLAKE_ACCOUNT'],
+#         warehouse = os.environ['SNOWFLAKE_WAREHOUSE'],
+#         database = os.environ['SNOWFLAKE_DATABASE'],
+#         role = os.environ['SNOWFLAKE_ROLE'],
+#         schema = os.environ['SNOWFLAKE_SCHEMA']
+#     )
+#     data=pd.read_sql("select * from npmdb.nqiuser1.db_master ",con )
+#     print(data)
+#     return con
+
+# Streamlitのシークレットを使用してSnowflakeの接続情報を取得
 snowflake_credentials = st.secrets["snowflake"]
 
 # Snowflakeに接続
@@ -23,23 +41,26 @@ conn = snowflake.connector.connect(
     role=snowflake_credentials['role']
 )
 
-def run_query(conn, query):
-    cursor = conn.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    return result
+# Snowflakeへの接続URLを作成
+snowflake_url=f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@" \
+      f"{snowflake_credentials['account']}/{snowflake_credentials['warehouse']}/" \
+      f"{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&role={snowflake_credentials['role']}"
+
+# Snowflakeに接続
+engine_SF = create_engine(snowflake_url)
+connect_SF=engine_SF.connect()
 
 def get_share_data(kabulist_date):
-    querylist = f"""SELECT SECURITY_CODE, KANJI_NAME
-                    FROM NPMDB.NQIUSER1.ATTRIBUTES 
+   querylist = f"""select SECURITY_CODE, KANJI_NAME
+                    from NPMDB.NQIUSER1.ATTRIBUTES 
                     WHERE CALENDAR_DATE = '{kabulist_date}'
-                    AND SECURITY_CODE NOT LIKE '%0000%'
-                    ORDER BY SECURITY_CODE;"""
-    querycd=run_query(conn, querylist)
-    querycd_df = pd.DataFrame(querycd, columns=['security_code', 'kanji_name'])
-    querycd_df.set_index('security_code', inplace=True)
-    return querycd_df
+                    and  SECURITY_CODE not like '%0000%'
+                    order by SECURITY_CODE;"""
+   querycd = pd.read_sql(querylist,connect_SF)
+   print(querycd)
+   querycd = querycd.set_index('security_code')
+   connect_SF.close()
+   return querycd
 
 
 def adj_bd(date):
@@ -99,10 +120,9 @@ if st.button('push display'):
     query_file_path = 'npmdbtest.sql'
     query = get_query(kabuid=selector2,date_from=date1,date_to=date2,filename=query_file_path)
     #my_data_rows=run_query(query_file_path)
-    my_data = run_query(conn, query)
-    conn.close()
-    print(my_data)
-    my_data = pd.DataFrame(my_data, columns=['calendar_date', 'security_code', 'kanji_name', 'price']) 
+    my_data = pd.read_sql(query,connect_SF )
+    connect_SF.close()
+    
     my_data.loc[:,'price']=my_data.loc[:,'price'].astype('int')
     print(my_data)
     my_chart= my_data.set_index("calendar_date")["price"]
