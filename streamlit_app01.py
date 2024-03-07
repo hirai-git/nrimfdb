@@ -29,22 +29,36 @@ from snowflake.sqlalchemy import URL
 
 # Streamlitのシークレットを使用してSnowflakeの接続情報を取得
 snowflake_credentials = st.secrets["snowflake"]
+
+# Snowflakeに接続
+conn = snowflake.connector.connect(
+    user=snowflake_credentials['user'],
+    password=snowflake_credentials['password'],
+    account=snowflake_credentials['account'],
+    warehouse=snowflake_credentials['warehouse'],
+    database=snowflake_credentials['database'],
+    schema=snowflake_credentials['schema'],
+    role=snowflake_credentials['role']
+)
+
 # Snowflakeへの接続URLを作成
-snowflake_url = f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@{snowflake_credentials['account']}/{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&warehouse={snowflake_credentials['warehouse']}&role={snowflake_credentials['role']}"
+snowflake_url=f"snowflake://{snowflake_credentials['user']}:{snowflake_credentials['password']}@" \
+      f"{snowflake_credentials['account']}/{snowflake_credentials['warehouse']}/" \
+      f"{snowflake_credentials['database']}?schema={snowflake_credentials['schema']}&role={snowflake_credentials['role']}"
 
 # Snowflakeに接続
 engine_SF = create_engine(snowflake_url)
 connect_SF=engine_SF.connect()
 
-def get_share_data(kabulist_date:str):
-   querylist = f"""select distinct SECURITY_CODE, KANJI_NAME
+def get_share_data(kabulist_date):
+   querylist = f"""select SECURITY_CODE, KANJI_NAME
                     from NPMDB.NQIUSER1.ATTRIBUTES 
-                    WHERE CALENDAR_DATE = {kabulist_date}
+                    WHERE CALENDAR_DATE = '{kabulist_date}'
                     and  SECURITY_CODE not like '%0000%'
-                    order by SECURITY_CODE;
-                """
+                    order by SECURITY_CODE;"""
    querycd = pd.read_sql(querylist,connect_SF)
-   querycd = querycd.set_index('SECURITY_CODE')
+   print(querycd)
+   querycd = querycd.set_index('security_code')
    engine_SF.dispose()
    return querycd
 
@@ -94,7 +108,7 @@ meigara_to_show = kabulist.loc[selector]
 st.dataframe(meigara_to_show)
 
 
-def get_query( kabuid:str, date_from:str, date_to:str, filename:str):
+def get_query( kabuid, date_from:str, date_to:str, filename:str):
     with open(filename, 'r', encoding='utf-8') as f:
         query = f.read().format(kabuid=kabuid,date_from=date_from,date_to=date_to)
     return query
@@ -109,8 +123,9 @@ if st.button('push display'):
     my_data = pd.read_sql(query,connect_SF )
     engine_SF.dispose()
     
-    my_data.loc[:,'PRICE']=my_data.loc[:,'PRICE'].astype('int')
-    my_chart= my_data.set_index("CALENDAR_DATE")["PRICE"]
+    my_data.loc[:,'price']=my_data.loc[:,'price'].astype('int')
+    print(my_data)
+    my_chart= my_data.set_index("calendar_date")["price"]
     st.line_chart(my_chart)
     st.dataframe(my_data)
 
